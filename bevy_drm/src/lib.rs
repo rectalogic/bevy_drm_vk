@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub mod card; //XXX not pub
+pub mod dri; //XXX not pub
 
 pub struct DrmPlugin;
 
