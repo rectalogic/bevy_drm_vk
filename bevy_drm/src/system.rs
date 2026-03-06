@@ -9,9 +9,9 @@ use bevy::{
 use crate::drm::{Drm, DrmWrapper};
 
 pub fn observe_window_added(
-    window: On<Add, Window>,
+    window: On<Add, PrimaryWindow>,
     mut commands: Commands,
-    mut query: Query<(&mut Window, &mut RawHandleWrapperHolder), With<PrimaryWindow>>,
+    mut query: Query<(&mut Window, &RawHandleWrapperHolder), With<PrimaryWindow>>,
     drm: Res<DrmWrapper>,
     mut window_event_messages: MessageWriter<WindowEvent>,
     mut window_resized_messages: MessageWriter<WindowResized>,
@@ -34,12 +34,11 @@ pub fn observe_window_added(
     };
     window_resized_messages.write(resized.clone());
     window_event_messages.write(WindowEvent::WindowResized(resized));
-
     if let Ok(raw_handle_wrapper) = RawHandleWrapper::new(drm) {
         commands
             .entity(window.entity)
             .insert(raw_handle_wrapper.clone());
-        *handle_holder.0.lock().unwrap() = Some(raw_handle_wrapper)
+        *handle_holder.0.lock().unwrap() = Some(raw_handle_wrapper);
     }
 
     Ok(())
