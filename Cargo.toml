@@ -1,6 +1,13 @@
-[workspace]
-resolver = "3"
-members = ["bevy_drm", "bevy_r36s_input"]
+[package]
+name = "bevy_drm"
+description = "Direct Rendering Manager (DRM) rendering plugin for Bevy"
+version = "0.1.0"
+edition = "2024"
 
-[workspace.dependencies]
-bevy = { version = "0.18", default-features = false }
+[dependencies]
+bevy = { version = "0.18", features = ["bevy_log", "bevy_window"] }
+drm = "0.14.2"
+raw-window-handle = "0.6.2"
+
+[dev-dependencies]
+bevy = { version = "0.18", default-features = true }
