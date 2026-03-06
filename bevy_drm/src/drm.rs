@@ -16,12 +16,64 @@ use std::{
     },
 };
 
+#[derive(Resource, Debug)]
+pub struct DrmWrapper(pub Option<WindowWrapper<Drm>>);
+
+#[derive(Debug)]
+pub struct Drm {
+    card: Card,
+    window: DrmWindow,
+}
+
+impl Drm {
+    pub fn new() -> Result<Self, BevyError> {
+        Self::with_card(Card::open_default()?)
+    }
+
+    pub fn with_card_path(card_path: &str) -> Result<Self, BevyError> {
+        Self::with_card(Card::open(card_path)?)
+    }
+
+    fn with_card(card: Card) -> Result<Self, BevyError> {
+        let Some(drm_window) = card.drm_window()? else {
+            return Err("Could not initialize DRM".into());
+        };
+        Ok(Self {
+            card,
+            window: drm_window,
+        })
+    }
+
+    pub fn mode(&self) -> &control::Mode {
+        &self.window.mode
+    }
+}
+
+impl HasDisplayHandle for Drm {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
+        unsafe {
+            Ok(DisplayHandle::borrow_raw(RawDisplayHandle::Drm(
+                DrmDisplayHandle::new(self.card.as_fd().as_raw_fd()),
+            )))
+        }
+    }
+}
+
+impl HasWindowHandle for Drm {
+    fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
+        unsafe {
+            Ok(WindowHandle::borrow_raw(RawWindowHandle::Drm(
+                DrmWindowHandle::new(self.window.plane_handle.into()),
+            )))
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Card(File);
 
 #[derive(Debug)]
-pub struct DrmWindow {
-    fd: i32,
+struct DrmWindow {
     mode: control::Mode,
     plane_handle: plane::Handle,
 }
@@ -34,26 +86,6 @@ impl AsFd for Card {
 
 impl Device for Card {}
 impl ControlDevice for Card {}
-
-impl HasDisplayHandle for DrmWindow {
-    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
-        unsafe {
-            Ok(DisplayHandle::borrow_raw(RawDisplayHandle::Drm(
-                DrmDisplayHandle::new(self.fd),
-            )))
-        }
-    }
-}
-
-impl HasWindowHandle for DrmWindow {
-    fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
-        unsafe {
-            Ok(WindowHandle::borrow_raw(RawWindowHandle::Drm(
-                DrmWindowHandle::new(self.plane_handle.into()),
-            )))
-        }
-    }
-}
 
 impl Card {
     fn open(path: &str) -> Result<Self, io::Error> {
@@ -70,11 +102,7 @@ impl Card {
         let Some((plane_handle, mode)) = self.initialize()? else {
             return Ok(None);
         };
-        Ok(Some(DrmWindow {
-            fd: self.as_fd().as_raw_fd(),
-            mode,
-            plane_handle,
-        }))
+        Ok(Some(DrmWindow { mode, plane_handle }))
     }
 
     fn initialize(&self) -> Result<Option<(plane::Handle, control::Mode)>, io::Error> {
@@ -148,39 +176,5 @@ impl Card {
         }
 
         Ok(None)
-    }
-}
-
-#[derive(Resource, Debug)]
-pub struct Drm {
-    card: Card,
-    window_wrapper: WindowWrapper<DrmWindow>,
-}
-
-impl Drm {
-    pub fn new() -> Result<Self, BevyError> {
-        Self::with_card(Card::open_default()?)
-    }
-
-    pub fn with_card_path(card_path: &str) -> Result<Self, BevyError> {
-        Self::with_card(Card::open(card_path)?)
-    }
-
-    fn with_card(card: Card) -> Result<Self, BevyError> {
-        let Some(drm_window) = card.drm_window()? else {
-            return Err("Could not initialize DRM".into());
-        };
-        Ok(Self {
-            card,
-            window_wrapper: WindowWrapper::new(drm_window),
-        })
-    }
-
-    pub fn mode(&self) -> &control::Mode {
-        &self.window_wrapper.mode
-    }
-
-    pub fn window_wrapper(&self) -> &WindowWrapper<DrmWindow> {
-        &self.window_wrapper
     }
 }

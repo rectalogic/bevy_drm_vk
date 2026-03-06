@@ -6,17 +6,20 @@ use bevy::{
     },
 };
 
-use crate::drm::{Drm, DrmWindow};
+use crate::drm::{Drm, DrmWrapper};
 
 pub fn observe_window_added(
     window: On<Add, Window>,
     mut commands: Commands,
     mut query: Query<(&mut Window, &mut RawHandleWrapperHolder), With<PrimaryWindow>>,
-    drm: Res<Drm>,
+    drm: Res<DrmWrapper>,
     mut window_event_messages: MessageWriter<WindowEvent>,
     mut window_resized_messages: MessageWriter<WindowResized>,
 ) -> Result<()> {
     let Ok((mut primary_window, handle_holder)) = query.get_mut(window.entity) else {
+        return Ok(());
+    };
+    let Some(ref drm) = drm.0 else {
         return Ok(());
     };
 
@@ -32,7 +35,7 @@ pub fn observe_window_added(
     window_resized_messages.write(resized.clone());
     window_event_messages.write(WindowEvent::WindowResized(resized));
 
-    if let Ok(raw_handle_wrapper) = RawHandleWrapper::new(drm.window_wrapper()) {
+    if let Ok(raw_handle_wrapper) = RawHandleWrapper::new(drm) {
         commands
             .entity(window.entity)
             .insert(raw_handle_wrapper.clone());
@@ -47,9 +50,10 @@ pub fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
     window_entities: Query<Entity, With<Window>>,
+    mut drm: ResMut<DrmWrapper>,
     mut closing_event_writer: MessageWriter<WindowClosing>,
     mut closed_event_writer: MessageWriter<WindowClosed>,
-    mut windows_to_drop: Local<Vec<WindowWrapper<DrmWindow>>>,
+    mut windows_to_drop: Local<Vec<WindowWrapper<Drm>>>,
 ) {
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
@@ -62,15 +66,13 @@ pub fn despawn_windows(
         // rather than having the component added
         // and removed in the same frame.
         if !window_entities.contains(window) {
-            // SDL_WINDOWS.with_borrow_mut(|sdl_windows| {
-            //     if let Some(window) = sdl_windows.remove_window(window) {
-            //         // Keeping WindowWrapper that are dropped for one frame
-            //         // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
-            //         // This would hang on macOS
-            //         // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
-            //         windows_to_drop.push(window);
-            //     }
-            // });
+            if let Some(window_wrapper) = drm.0.take() {
+                // Keeping WindowWrapper that are dropped for one frame
+                // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
+                // This would hang on macOS
+                // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
+                windows_to_drop.push(window_wrapper);
+            }
             closed_event_writer.write(WindowClosed { window });
         }
     }

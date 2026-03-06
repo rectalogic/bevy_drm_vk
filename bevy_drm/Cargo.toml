@@ -8,3 +8,6 @@ edition = "2024"
 bevy = { workspace = true, features = ["bevy_log", "bevy_window"] }
 drm = "0.14.2"
 raw-window-handle = "0.6.2"
+
+[dev-dependencies]
+bevy = { workspace = true, default-features = true }
