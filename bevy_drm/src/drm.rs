@@ -1,7 +1,7 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowWrapper};
 use drm::{
     ClientCapability, Device,
-    control::{self, Device as ControlDevice, ModeTypeFlags, PlaneType, connector::State},
+    control::{self, Device as ControlDevice, ModeTypeFlags, PlaneType, connector::State, plane},
 };
 use raw_window_handle::{
     DisplayHandle, DrmDisplayHandle, DrmWindowHandle, HandleError, HasDisplayHandle,
@@ -17,23 +17,25 @@ use std::{
 };
 
 #[derive(Debug)]
-pub struct Dri(File);
+struct Card(File);
 
-pub struct RawDri {
+#[derive(Debug)]
+pub struct DrmWindow {
     fd: i32,
-    plane: Option<u32>,
+    mode: control::Mode,
+    plane_handle: plane::Handle,
 }
 
-impl AsFd for Dri {
+impl AsFd for Card {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
     }
 }
 
-impl Device for Dri {}
-impl ControlDevice for Dri {}
+impl Device for Card {}
+impl ControlDevice for Card {}
 
-impl HasDisplayHandle for RawDri {
+impl HasDisplayHandle for DrmWindow {
     fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
         unsafe {
             Ok(DisplayHandle::borrow_raw(RawDisplayHandle::Drm(
@@ -43,38 +45,39 @@ impl HasDisplayHandle for RawDri {
     }
 }
 
-impl HasWindowHandle for RawDri {
+impl HasWindowHandle for DrmWindow {
     fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
-        let Some(plane) = self.plane else {
-            return Err(HandleError::Unavailable);
-        };
         unsafe {
             Ok(WindowHandle::borrow_raw(RawWindowHandle::Drm(
-                DrmWindowHandle::new(plane),
+                DrmWindowHandle::new(self.plane_handle.into()),
             )))
         }
     }
 }
 
-impl Dri {
-    pub fn open(path: &str) -> Result<Self, io::Error> {
+impl Card {
+    fn open(path: &str) -> Result<Self, io::Error> {
         let this = Self(OpenOptions::new().read(true).write(true).open(path)?);
         this.set_client_capability(ClientCapability::UniversalPlanes, true)?;
         Ok(this)
     }
 
-    pub fn open_default() -> Result<Self, io::Error> {
+    fn open_default() -> Result<Self, io::Error> {
         Self::open("/dev/dri/card0")
     }
 
-    pub fn raw(&self) -> Result<Option<RawDri>, io::Error> {
-        Ok(Some(RawDri {
+    fn drm_window(&self) -> Result<Option<DrmWindow>, io::Error> {
+        let Some((plane_handle, mode)) = self.initialize()? else {
+            return Ok(None);
+        };
+        Ok(Some(DrmWindow {
             fd: self.as_fd().as_raw_fd(),
-            plane: self.plane()?,
+            mode,
+            plane_handle,
         }))
     }
 
-    fn plane(&self) -> Result<Option<u32>, io::Error> {
+    fn initialize(&self) -> Result<Option<(plane::Handle, control::Mode)>, io::Error> {
         let resources = self.resource_handles()?;
 
         for &connector_handle in resources.connectors() {
@@ -105,9 +108,12 @@ impl Dri {
 
             let current_mode = self.get_crtc(crtc_handle)?.mode();
             if current_mode.as_ref() != preferred_mode {
-                error!("Using current mode {current_mode:?} not preferred mode {preferred_mode:?}");
+                warn!("Using current mode {current_mode:?} not preferred mode {preferred_mode:?}");
                 // XXX we should modeset https://github.com/Smithay/drm-rs/blob/develop/examples/atomic_modeset.rs
             }
+            let Some(mode) = current_mode else {
+                continue;
+            };
 
             for plane_handle in self.plane_handles()? {
                 if !matches!(self.plane_type(plane_handle)?, Some(PlaneType::Primary)) {
@@ -118,14 +124,14 @@ impl Dri {
                     .filter_crtcs(plane_info.possible_crtcs())
                     .contains(&crtc_handle)
                 {
-                    return Ok(Some(plane_handle.into()));
+                    return Ok(Some((plane_handle, mode)));
                 }
             }
         }
         Ok(None)
     }
 
-    pub fn plane_type(&self, plane: control::plane::Handle) -> io::Result<Option<PlaneType>> {
+    fn plane_type(&self, plane: control::plane::Handle) -> io::Result<Option<PlaneType>> {
         let props = self.get_properties(plane)?;
 
         for (&prop_handle, &raw_value) in props.iter() {
@@ -142,5 +148,39 @@ impl Dri {
         }
 
         Ok(None)
+    }
+}
+
+#[derive(Resource, Debug)]
+pub struct Drm {
+    card: Card,
+    window_wrapper: WindowWrapper<DrmWindow>,
+}
+
+impl Drm {
+    pub fn new() -> Result<Self, BevyError> {
+        Self::with_card(Card::open_default()?)
+    }
+
+    pub fn with_card_path(card_path: &str) -> Result<Self, BevyError> {
+        Self::with_card(Card::open(card_path)?)
+    }
+
+    fn with_card(card: Card) -> Result<Self, BevyError> {
+        let Some(drm_window) = card.drm_window()? else {
+            return Err("Could not initialize DRM".into());
+        };
+        Ok(Self {
+            card,
+            window_wrapper: WindowWrapper::new(drm_window),
+        })
+    }
+
+    pub fn mode(&self) -> &control::Mode {
+        &self.window_wrapper.mode
+    }
+
+    pub fn window_wrapper(&self) -> &WindowWrapper<DrmWindow> {
+        &self.window_wrapper
     }
 }
