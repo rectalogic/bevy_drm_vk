@@ -5,9 +5,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18", features = ["bevy_log", "bevy_window"] }
+# bevy = { version = "0.18", features = ["bevy_log", "bevy_window"] }
+# using 543b305adce77f84cffaa964b631724ea7051135
+bevy = { path = "../experiments/vendor/bevy", features = ["bevy_log", "bevy_window"] }
 drm = "0.14.2"
 raw-window-handle = "0.6.2"
 
+[patch.crates-io]
+wgpu = { path = "../experiments/vendor/wgpu/wgpu" }
+wgpu-core = { path = "../experiments/vendor/wgpu/wgpu-core" }
+wgpu-hal = { path = "../experiments/vendor/wgpu/wgpu-hal" }
+wgpu-types = { path = "../experiments/vendor/wgpu/wgpu-types" }
+naga = { path = "../experiments/vendor/wgpu/naga" }
+naga_oil = { git = "https://github.com/bevyengine/naga_oil.git", rev = "e349f54" }
+
 [dev-dependencies]
-bevy = { version = "0.18", default-features = true }
+# bevy = { version = "0.18", default-features = true }
+bevy = { path = "../experiments/vendor/bevy", default-features = true }

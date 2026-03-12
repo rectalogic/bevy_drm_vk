@@ -1,48 +1,9 @@
 use bevy::{
     prelude::*,
-    window::{
-        ClosingWindow, PrimaryWindow, RawHandleWrapper, RawHandleWrapperHolder, WindowClosed,
-        WindowClosing, WindowEvent, WindowResized, WindowWrapper,
-    },
+    window::{ClosingWindow, WindowClosed, WindowClosing, WindowWrapper},
 };
 
 use crate::drm::{Drm, DrmWrapper};
-
-pub fn observe_window_added(
-    window: On<Add, PrimaryWindow>,
-    mut commands: Commands,
-    mut query: Query<(&mut Window, &RawHandleWrapperHolder), With<PrimaryWindow>>,
-    drm: Res<DrmWrapper>,
-    mut window_event_messages: MessageWriter<WindowEvent>,
-    mut window_resized_messages: MessageWriter<WindowResized>,
-) -> Result<()> {
-    let Ok((mut primary_window, handle_holder)) = query.get_mut(window.entity) else {
-        return Ok(());
-    };
-    let Some(ref drm) = drm.0 else {
-        return Ok(());
-    };
-
-    let (width, height) = drm.mode().size();
-    primary_window
-        .resolution
-        .set_physical_resolution(width as u32, height as u32);
-    let resized = WindowResized {
-        window: window.entity,
-        width: width as f32,
-        height: height as f32,
-    };
-    window_resized_messages.write(resized.clone());
-    window_event_messages.write(WindowEvent::WindowResized(resized));
-    if let Ok(raw_handle_wrapper) = RawHandleWrapper::new(drm) {
-        commands
-            .entity(window.entity)
-            .insert(raw_handle_wrapper.clone());
-        *handle_holder.0.lock().unwrap() = Some(raw_handle_wrapper);
-    }
-
-    Ok(())
-}
 
 // See https://github.com/bevyengine/bevy/blob/5f8270f2e049f90139a503d1e930070d926f9427/crates/bevy_winit/src/system.rs#L240
 pub fn despawn_windows(

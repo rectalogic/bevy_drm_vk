@@ -3,8 +3,19 @@ use bevy_drm::DrmPlugin;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DrmPlugin, DefaultPlugins.build().disable::<WinitPlugin>()))
-        .add_systems(Startup, setup);
+    app.add_plugins((
+        DefaultPlugins
+            .set(WindowPlugin {
+                // Prevents WindowPlugin::build from inserting RawHandleWrapperHolder which creates a surface in bevy_render::renderer::initialize_renderer from RenderPlugin::build
+                // Must set WGPU_ADAPTER_NAME env var so we find the correct GPU
+                primary_window: None,
+                ..default()
+            })
+            .build()
+            .disable::<WinitPlugin>(),
+        DrmPlugin,
+    ))
+    .add_systems(Startup, setup);
 
     app.run();
 }
