@@ -1,5 +1,5 @@
-use bevy::{color::palettes, prelude::*, winit::WinitPlugin};
-use bevy_drm::DrmPlugin;
+use bevy::{color::palettes, prelude::*, render::RenderPlugin, winit::WinitPlugin};
+use bevy_drm::{DrmPlugin, render_creation};
 
 fn main() {
     let mut app = App::new();
@@ -9,6 +9,10 @@ fn main() {
                 // Prevents WindowPlugin::build from inserting RawHandleWrapperHolder which creates a surface in bevy_render::renderer::initialize_renderer from RenderPlugin::build
                 // Must set WGPU_ADAPTER_NAME env var so we find the correct GPU
                 primary_window: None,
+                ..default()
+            })
+            .set(RenderPlugin {
+                render_creation: render_creation(),
                 ..default()
             })
             .build()
