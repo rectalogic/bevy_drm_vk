@@ -53,7 +53,11 @@ impl Plugin for DrmPlugin {
 pub fn render_creation() -> RenderCreation {
     let settings = WgpuSettings {
         backends: Some(Backends::VULKAN),
-        adapter_name: Some(std::env::var("WGPU_ADAPTER_NAME").unwrap().to_lowercase()),
+        adapter_name: Some(
+            std::env::var("WGPU_ADAPTER_NAME")
+                .expect("WGPU_ADAPTER_NAME to be set")
+                .to_lowercase(),
+        ),
         instance_flags: InstanceFlags::from_env_or_default(),
         ..default()
     };
