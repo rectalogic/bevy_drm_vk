@@ -657,7 +657,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_drm"
+name = "bevy_drm_vk"
 version = "0.1.0"
 dependencies = [
  "bevy",
