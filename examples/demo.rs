@@ -1,5 +1,5 @@
 use bevy::{color::palettes, prelude::*, render::RenderPlugin, winit::WinitPlugin};
-use bevy_drm::{DrmPlugin, render_creation};
+use bevy_drm_vk::{DrmPlugin, render_creation};
 
 fn main() {
     let mut app = App::new();
