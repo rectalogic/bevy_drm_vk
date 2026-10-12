@@ -30,6 +30,10 @@ impl Drm {
         Self::with_card(Card::open_default()?)
     }
 
+    pub fn with_card_path(card_path: &str) -> Result<Self, BevyError> {
+        Self::with_card(Card::open(card_path)?)
+    }
+
     fn with_card(card: Card) -> Result<Self, BevyError> {
         let Some(drm_window) = card.drm_window()? else {
             return Err("Could not initialize DRM".into());

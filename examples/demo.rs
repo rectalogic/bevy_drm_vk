@@ -2,6 +2,9 @@ use bevy::{color::palettes, prelude::*, render::RenderPlugin, winit::WinitPlugin
 use bevy_drm_vk::{DrmPlugin, render_creation};
 
 fn main() {
+    let mut args = std::env::args();
+    let _ = args.next();
+    let card_path = args.next();
     let mut app = App::new();
     app.add_plugins((
         DefaultPlugins
@@ -17,7 +20,9 @@ fn main() {
             })
             .build()
             .disable::<WinitPlugin>(),
-        DrmPlugin,
+        DrmPlugin {
+            card_path,
+        },
     ))
     .add_systems(Startup, setup);
 

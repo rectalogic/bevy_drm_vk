@@ -21,11 +21,19 @@ use crate::{drm::DrmWrapper, system::despawn_windows};
 mod drm;
 mod system;
 
-pub struct DrmPlugin;
+#[derive(Default)]
+pub struct DrmPlugin {
+    pub card_path: Option<String>,
+}
 
 impl Plugin for DrmPlugin {
     fn build(&self, app: &mut App) {
-        let drm = drm::Drm::new().expect("DRM should be initialized");
+        let drm = if let Some(ref card_path) = self.card_path {
+            drm::Drm::with_card_path(card_path)
+        } else {
+            drm::Drm::new()
+        }
+        .expect("DRM should be initialized");
         let (width, height) = drm.mode().size();
         let frame_duration = Duration::from_secs_f64(1.0 / drm.mode().vrefresh() as f64);
         let drm_wrapper = DrmWrapper(Some(WindowWrapper::new(drm)));
