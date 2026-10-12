@@ -1,11 +1,12 @@
 [package]
 name = "bevy_drm_vk"
 description = "Direct Rendering Manager (DRM) rendering plugin for Bevy"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 bevy = { version = "0.20", features = ["bevy_log", "bevy_window"] }
+wgpu = { version = "30", default-features = false, features = ["drm"] }
 drm = "0.15"
 raw-window-handle = "0.6.2"
 
